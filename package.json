@@ -1,0 +1,32 @@
+{
+  "name": "my-blog",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "我的博客 - 基于 Vue 3 + Markdown + Git 的个人博客",
+  "scripts": {
+    "start": "node scripts/start-dev.mjs",
+    "dev": "node scripts/start-dev.mjs",
+    "dev:plain": "vite",
+    "build": "vite build",
+    "preview": "vite preview --port 4173",
+    "free-port": "node scripts/free-port.mjs 5173 4173",
+    "new": "node scripts/new-post.js",
+    "verify": "node scripts/verify-content.mjs",
+    "smoke": "node scripts/smoke-test.mjs",
+    "test": "node scripts/test-port-utils.mjs && node scripts/test-launcher.mjs",
+    "test:port": "node scripts/test-port-utils.mjs",
+    "test:launcher": "node scripts/test-launcher.mjs"
+  },
+  "dependencies": {
+    "highlight.js": "^11.9.0",
+    "markdown-it": "^14.1.0",
+    "markdown-it-anchor": "^9.0.1",
+    "vue": "^3.4.27",
+    "vue-router": "^4.3.2"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.0.4",
+    "vite": "^5.2.11"
+  }
+}
