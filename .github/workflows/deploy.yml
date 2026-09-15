@@ -18,11 +18,12 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
-          node-version: 20
+          # Node 20 已 EOL，且旧版 action 运行在 node20 上会被 GitHub 警告弃用
+          node-version: 22
           cache: npm
 
       - name: Install
@@ -35,9 +36,13 @@ jobs:
           # 这里由仓库名自动推导，用户主页仓库（<user>.github.io）除外
           VITE_BASE: /${{ github.event.repository.name }}/
 
-      - uses: actions/configure-pages@v4
+      # enablement: true 让 action 在 Pages 尚未开启时自动创建站点
+      # 注意：GitHub Free 账号的私有仓库不支持 Pages，仓库必须设为 Public
+      - uses: actions/configure-pages@v6
+        with:
+          enablement: true
 
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: dist
 
@@ -49,4 +54,4 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5

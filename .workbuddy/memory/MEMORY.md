@@ -76,3 +76,17 @@ Windows 上也可以直接双击根目录 `启动博客.bat`。
 
 - 远端：`https://github.com/Magixx-X/myblog`（用户后来去掉了 `.git` 后缀，两种写法对 GitHub 等价），主分支 `main`
 - 首次提交 `a98505a`（49 files）。此后改内容照常 `git add / commit / push` 即可。
+- 仓库是**私有**的。**推送必须由用户在自己的终端/VS Code 做** —— 沙箱里 `git push` 会挂死
+  （凭据窗口弹不出来），但 `git ls-remote` 这类只读操作能跑通，可用来查看远端状态。
+
+### 部署（GitHub Pages）
+
+- workflow 在 `.github/workflows/deploy.yml`，`VITE_BASE` 由仓库名自动推导为 `/<repo>/`。
+- **GitHub Free 账号的私有仓库不能用 Pages**（`GET /pages` 返回 404 →
+  `Get Pages site failed ... HttpError: Not Found`）。要上线必须让仓库转 **Public**，
+  或升级 Pro，或改用 Vercel / Netlify / Cloudflare Pages。
+- 转 Public 前先处理 `.workbuddy/` 的跟踪问题，否则项目笔记会全网可见。
+- action 已全部升到 node24 版本（checkout v5 / setup-node v6 / configure-pages v6 /
+  upload-pages-artifact v5 / deploy-pages v5），构建 node 用 22。
+  改 workflow 后**用系统 Python 校验 YAML**（托管版没装 PyYAML）：
+  `E:/DevWorkspace/DevTools/Languages/Python/python.exe`。
