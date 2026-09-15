@@ -59,3 +59,20 @@ Windows 上也可以直接双击根目录 `启动博客.bat`。
 - Git Bash 里 **`taskkill //F //PID x` 不work**（MSYS 不把 `//F` 转成 `/F`，报「无效参数」）。
   杀进程用 `killPid()`（Node 直接调 taskkill，不经 shell）或 `powershell Stop-Process`。
 - 后台起的 dev server 会在会话结束时被回收，退出码 1 —— 这是环境行为，不是脚本故障。
+- **区分两个代理，别搞混**：
+  - `127.0.0.1:53903` = **WorkBuddy 沙箱自己的出口代理**，只注入到 bash 工具的环境变量里。
+    它访问 GitHub 会返回 `CONNECT tunnel failed, 502`（`curl https://github.com` → `000`），
+    所以**这个环境里跑不了 push/pull**，涉及 GitHub 的操作交给用户，别反复重试。
+  - `127.0.0.1:7897` = **用户本机的 Clash Verge 混合端口**（netstat 可查到 LISTENING）。
+    git 走它访问 GitHub 实测 **exit=0 正常**。
+- **Git 不读 Windows 系统代理设置**。「浏览器能打开 GitHub」不等于「git 能连上」。
+  git 只认 `http.proxy` / `https.proxy` 配置项或 `HTTP_PROXY` / `HTTPS_PROXY` 环境变量；
+  两处都没配时 git 直连 `github.com:443`，约 21 秒后超时
+  （`Failed to connect to github.com:443`、`Could not connect to server`，exit 128）。
+  排查推送失败先看这两处，不要先怀疑认证。
+- `reg.exe` 被沙箱程序黑名单拦截，读不到 WinINET 注册表项。要查代理端口用 `netstat -ano`。
+
+### 仓库
+
+- 远端：`https://github.com/Magixx-X/myblog`（用户后来去掉了 `.git` 后缀，两种写法对 GitHub 等价），主分支 `main`
+- 首次提交 `a98505a`（49 files）。此后改内容照常 `git add / commit / push` 即可。
