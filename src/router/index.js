@@ -1,5 +1,38 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
+/**
+ * 还原 GitHub Pages 深链。
+ *
+ * 静态托管上没有服务端路由，直接访问 /posts/xxx 会命中 404.html
+ * （由 vite.config.js 的 spaFallback404 插件生成），它把目标路径写进
+ * sessionStorage 再跳回根目录。这里必须在 createWebHistory 之前把地址改回来，
+ * 这样路由的初始位置就是用户原本要访问的地址。
+ *
+ * 用 replaceState 而不是 push，是为了不给历史记录留一条多余条目 ——
+ * 用户按后退键不会又回到那个 404 页面。
+ */
+const REDIRECT_KEY = 'blog:spa-redirect'
+
+function restoreDeepLink() {
+  let saved = null
+  try {
+    saved = sessionStorage.getItem(REDIRECT_KEY)
+    if (saved) sessionStorage.removeItem(REDIRECT_KEY)
+  } catch (_) {
+    /* 隐私模式等场景下 sessionStorage 不可用，退化为直接进首页 */
+    return
+  }
+  if (!saved || saved.charAt(0) !== '/') return
+
+  const base = import.meta.env.BASE_URL.replace(/\/$/, '')
+  const target = base + saved
+  if (target === window.location.pathname) return
+
+  window.history.replaceState(null, '', target)
+}
+
+restoreDeepLink()
+
 const routes = [
   {
     path: '/',

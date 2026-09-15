@@ -16,7 +16,8 @@
     "smoke": "node scripts/smoke-test.mjs",
     "test": "node scripts/test-port-utils.mjs && node scripts/test-launcher.mjs",
     "test:port": "node scripts/test-port-utils.mjs",
-    "test:launcher": "node scripts/test-launcher.mjs"
+    "test:launcher": "node scripts/test-launcher.mjs",
+    "test:fallback": "node scripts/test-404-fallback.mjs"
   },
   "dependencies": {
     "highlight.js": "^11.9.0",

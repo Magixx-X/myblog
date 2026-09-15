@@ -29,7 +29,17 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
   <main class="app-main">
     <router-view v-slot="{ Component }">
       <transition name="fade" mode="out-in">
-        <component :is="Component" :key="route.fullPath" />
+        <!--
+          这层 .route-view 包裹不能删。
+          <Transition mode="out-in"> 必须是「单个元素」的子节点：若某个视图组件
+          本身是多根（fragment），Vue 无法给它挂过渡钩子 → leave 永远不结束 →
+          out-in 不会再插入新组件 → 主内容区整片空白。
+          （历史事故：PostView.vue 曾是多根，从文章页返回任何页面都是空白。）
+          包一层 div 后，无论视图多少根，过渡都只作用于这层 div。
+        -->
+        <div :key="route.fullPath" class="route-view">
+          <component :is="Component" />
+        </div>
       </transition>
     </router-view>
   </main>
@@ -45,6 +55,11 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
 .app-main {
   min-height: calc(100vh - var(--header-h) - 200px);
   padding: 34px 0 64px;
+}
+
+/* 只作为过渡的单一子节点存在，本身不产生任何布局效果 */
+.route-view {
+  display: block;
 }
 
 .to-top {

@@ -26,7 +26,10 @@ class CDP {
     this.id = 0
     this.pending = new Map()
     this.consoleErrors = []
+    this.consoleWarns = []
     this.pageErrors = []
+    /** 全程累积的告警，不随导航重置（用于最后统一断言） */
+    this.allWarns = []
 
     ws.addEventListener('message', (ev) => {
       const msg = JSON.parse(ev.data)
@@ -41,10 +44,15 @@ class CDP {
         const d = msg.params.exceptionDetails
         this.pageErrors.push(d.exception?.description || d.text)
       }
-      if (msg.method === 'Runtime.consoleAPICalled' && msg.params.type === 'error') {
-        this.consoleErrors.push(
-          msg.params.args.map((a) => a.description || a.value).join(' ')
-        )
+      if (msg.method === 'Runtime.consoleAPICalled') {
+        const text = msg.params.args.map((a) => a.description || a.value).join(' ')
+        if (msg.params.type === 'error') this.consoleErrors.push(text)
+        // Vue 的组件用法告警全部走 console.warn，必须收集：
+        // 「多根组件放进 Transition」这类问题不报错，但会让页面整片空白
+        if (msg.params.type === 'warning') {
+          this.consoleWarns.push(text)
+          this.allWarns.push(text)
+        }
       }
       if (msg.method === 'Log.entryAdded' && msg.params.entry.level === 'error') {
         this.pageErrors.push(msg.params.entry.text)
@@ -83,6 +91,7 @@ class CDP {
 
   async goto(url) {
     this.consoleErrors = []
+    this.consoleWarns = []
     this.pageErrors = []
     await this.send('Page.navigate', { url })
     // 等 load + 一点渲染时间
@@ -147,6 +156,13 @@ try {
     console.log(`${pass ? '  ✓' : '  ✗'} ${name}${detail ? `  ${detail}` : ''}`)
   }
 
+  /**
+   * 把页面里取到的 href 解析成绝对地址。
+   * 注意：部署到 GitHub Pages 时 base 是 /<repo>/，页面里的 href 会带这个前缀
+   * （/myblog/posts/xxx），所以不能直接和 BASE 做字符串拼接，必须走 URL 解析。
+   */
+  const abs = (href) => new URL(href, `${BASE.replace(/\/$/, '')}/`).href
+
   // ---------- 1. 首页 ----------
   console.log('\n[1] 首页 — 文章列表')
   await cdp.goto(`${BASE}/`)
@@ -184,12 +200,12 @@ try {
   // ---------- 2. 文章详情 ----------
   console.log('\n[2] 文章详情 — Markdown 渲染')
   const slug = await cdp.eval(`
-    const a = document.querySelector('.pcard a[href^="/posts/"]')
+    const a = document.querySelector('.pcard a[href*="/posts/"]')
     return a ? a.getAttribute('href') : null
   `)
   if (!slug) throw new Error('找不到文章链接')
 
-  await cdp.goto(`${BASE}${slug}`)
+  await cdp.goto(abs(slug))
   const detail = await cdp.eval(`
     return {
       h1: document.querySelector('article h1, .post h1, h1')?.textContent.trim() || '',
@@ -214,10 +230,10 @@ try {
   check('标题锚点生成', detail.h2anchors > 0, `${detail.h2anchors} 个锚点`)
   check('详情页无 JS 错误', cdp.pageErrors.length === 0, cdp.pageErrors[0] || '')
 
-  // 上下篇导航
+  // 上下篇导航（href 可能带 base 前缀，所以不能锚定行首）
   const nav = await cdp.eval(`
     const links = [...document.querySelectorAll('a')].map(a => a.getAttribute('href') || '')
-    return { prevNext: links.filter(h => /^\\/posts\\//.test(h)).length }
+    return { prevNext: links.filter(h => /\\/posts\\//.test(h)).length }
   `)
   check('相邻文章导航存在', nav.prevNext > 0, `${nav.prevNext} 个文章链接`)
 
@@ -226,7 +242,7 @@ try {
   await cdp.goto(`${BASE}/tags`)
   const tags = await cdp.eval(`
     return {
-      items: document.querySelectorAll('a[href^="/tags/"]').length,
+      items: document.querySelectorAll('a[href*="/tags/"]').length,
       text: document.body.innerText.slice(0, 200)
     }
   `)
@@ -235,12 +251,12 @@ try {
 
   // 单个标签详情
   const tagHref = await cdp.eval(`
-    const a = document.querySelector('a[href^="/tags/"]')
+    const a = document.querySelector('a[href*="/tags/"]')
     return a ? a.getAttribute('href') : null
   `)
   if (tagHref) {
     console.log('\n[4] 标签详情')
-    await cdp.goto(`${BASE}${tagHref}`)
+    await cdp.goto(abs(tagHref))
     const tagDetail = await cdp.eval(`
       return {
         cards: document.querySelectorAll('.pcard').length,
@@ -273,7 +289,7 @@ try {
   await cdp.goto(`${BASE}/archive`)
   const arch = await cdp.eval(`
     return {
-      links: document.querySelectorAll('a[href^="/posts/"]').length,
+      links: document.querySelectorAll('a[href*="/posts/"]').length,
       years: (document.body.innerText.match(/\\d{4}\\s*年/g) || []).length
     }
   `)
@@ -350,6 +366,79 @@ try {
     return { text: document.body.innerText.slice(0, 200) }
   `)
   check('未知路由有兜底页', /404|未找到|不存在/.test(nf.text), nf.text.replace(/\n/g, ' ').slice(0, 60))
+
+  /* ---------- 10. 客户端路由跳转（回归测试） ----------
+   * 上面 [1]~[9] 全部是 Page.navigate 整页加载，完全绕过了 vue-router
+   * 的客户端导航与 <Transition> 动画。历史事故：PostView.vue 曾是多根组件
+   * （.progress + .container），放进 <Transition mode="out-in"> 后 leave
+   * 永不结束 → 从文章页返回任何页面，主内容区整片空白。整页刷新又正常，
+   * 所以冒烟全绿却漏掉了它。这一段专门补上真实点击的动线。
+   */
+  console.log('\n[10] 客户端路由跳转（真实点击，非整页加载）')
+
+  const probe = `
+    const main = document.querySelector('.app-main')
+    return {
+      path: location.pathname + location.search,
+      len: main ? main.innerText.trim().length : -1,
+      children: main ? main.children.length : -1,
+      cards: document.querySelectorAll('.pcard').length
+    }
+  `
+
+  const enterPost = async () => {
+    await cdp.goto(`${BASE}/`)
+    await cdp.eval(`document.querySelector('.pcard a[href*="/posts/"]').click(); return true`)
+    await sleep(950)
+    return cdp.eval(probe)
+  }
+
+  const clickNav = async (label) => {
+    const found = await cdp.eval(`
+      const a = [...document.querySelectorAll('.nav-link')].find(x => x.textContent.trim() === ${JSON.stringify(label)})
+      if (!a) return false
+      a.click()
+      return true
+    `)
+    await sleep(950)
+    return found ? cdp.eval(probe) : null
+  }
+
+  const entered = await enterPost()
+  check('点击进入文章页', entered.len > 200, `path=${entered.path} 正文 ${entered.len} 字符`)
+
+  for (const label of ['首页', '标签', '分类', '归档', '关于']) {
+    const enteredPost = await enterPost()
+    if (enteredPost.len < 100) {
+      check(`文章页 → ${label}`, false, '前置步骤失败：文章页本身没渲染出来')
+      continue
+    }
+    const r = await clickNav(label)
+    check(
+      `文章页 → ${label}`,
+      !!r && r.len > 150 && r.children > 0,
+      r ? `path=${r.path} 正文 ${r.len} 字符 / main 子节点 ${r.children}` : '找不到导航项'
+    )
+  }
+
+  // 浏览器后退键同样走客户端导航
+  await enterPost()
+  await cdp.eval(`history.back(); return true`)
+  await sleep(950)
+  const viaBack = await cdp.eval(probe)
+  check(
+    '浏览器后退回到首页',
+    viaBack.len > 150 && viaBack.cards > 0,
+    `path=${viaBack.path} 正文 ${viaBack.len} 字符 / ${viaBack.cards} 张卡片`
+  )
+
+  // 视图组件必须单根，否则 <Transition mode="out-in"> 会卡死（本次事故的成因）
+  const rootWarns = cdp.allWarns.filter((w) => /non-element root node/.test(w))
+  check(
+    '无「多根组件放进 Transition」告警',
+    rootWarns.length === 0,
+    rootWarns.length ? rootWarns[0].split('\n')[0].slice(0, 80) : ''
+  )
 
   /* ------------------------------- 汇总 -------------------------------- */
 

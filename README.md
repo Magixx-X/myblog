@@ -84,11 +84,22 @@ npm run smoke -- http://localhost:4173   # 生产构建也要过一遍
 `verify` 查的是数据对不对，`smoke` 查的是页面真的渲染出来了、且没有 JS 报错。
 **两个都要跑**——只用其中一个会漏掉整类故障（比如「构建成功但一篇文章都没有」这种只在运行时才暴露的问题）。
 
+> `smoke` 里有两类断言：一类用整页加载逐页检查渲染，另一类**模拟真实点击**走客户端路由
+> （点进文章 → 点导航返回）。后者是专门为「页面空白」这类问题加的回归测试——
+> 只做整页加载会绕过 vue-router 和页面过渡，恰好把这类 bug 全漏掉。
+
 ```bash
 npm test                       # 启动脚本相关的单元测试 + 端到端测试
 npm run test:port              # 只管端口检测逻辑（快）
 npm run test:launcher          # 端到端：孤儿接管 + 强杀自愈（慢，约 1 分钟）
+npm run test:fallback          # GitHub Pages 深链兜底（需先按部署用的 base 构建）
 node scripts/screenshot.mjs    # 批量截图到 screenshots/，用于人工核对视觉
+```
+
+深链兜底这条要在**构建之后**跑，因为验的是 `dist/404.html`：
+
+```bash
+VITE_BASE=/myblog/ npm run build && node scripts/test-404-fallback.mjs /myblog/
 ```
 
 ## 目录结构
@@ -111,6 +122,7 @@ node scripts/screenshot.mjs    # 批量截图到 screenshots/，用于人工核�
 │   ├── smoke-test.mjs          # 浏览器冒烟测试（npm run smoke）
 │   ├── test-port-utils.mjs     # 端口逻辑单元测试
 │   ├── test-launcher.mjs       # 启动器端到端测试
+│   ├── test-404-fallback.mjs   # GitHub Pages 深链兜底验证
 │   └── screenshot.mjs          # 批量页面截图
 ├── 启动博客.bat                # Windows 双击启动
 ├── src/
@@ -270,6 +282,28 @@ workflow 会自动注入 `VITE_BASE=/<仓库名>/`，不用手改配置。
 
 > 如果是用户主页仓库（名字形如 `<用户名>.github.io`），把 workflow 里的 `VITE_BASE` 那两行删掉即可。
 
+#### 深链刷新为什么不会 404
+
+GitHub Pages 是纯静态托管，没有服务端路由。直接访问或刷新 `/myblog/posts/xxx`
+时服务器上并不存在这个文件，默认会落到 GitHub 自己的 404 页
+（*"The site configured at this address does not contain the requested file"*）。
+
+构建时 `vite.config.js` 里的 `spaFallback404` 插件会产出一个 `dist/404.html`：
+它把用户原本要访问的路径临时存进 `sessionStorage`，再跳回站点根目录；
+应用启动后由 `src/router/index.js` 用 `history.replaceState` 把地址还原——
+地址栏看起来完全没变过，也不多留一条历史记录（按后退不会又回到 404 页）。
+
+**部署到别的平台时：**
+
+| 平台 | 处理方式 |
+| --- | --- |
+| GitHub Pages | 已内置 `404.html`，零配置 |
+| Vercel / Netlify | 平台自带 SPA 兜底，零配置 |
+| 自己的 Nginx | 配 `try_files $uri $uri/ /index.html;`（见下方示例） |
+
+> 兜底依赖 `sessionStorage`。极少数隐私模式会禁用它，此时退化行为是
+> 「深链只回到首页」——站点仍可正常浏览，只是不会停在原来的文章上。
+
 ### Vercel / Netlify
 
 连上 Git 仓库，构建命令 `npm run build`，输出目录 `dist`，零配置。
@@ -350,6 +384,30 @@ Markdown 渲染做了**惰性缓存**——列表页不需要渲染正文，只�
 ### 主题切换
 
 CSS 变量 + `html[data-theme]` 属性切换。默认读 `localStorage`，没有则跟随系统 `prefers-color-scheme`。
+
+### ⚠️ 页面过渡与「视图必须单根」
+
+`App.vue` 用 `<transition mode="out-in">` 做页面切换动画。这个模式下 **Transition 的子节点
+必须是单个元素**：如果某个视图组件是多根（fragment，即 `<template>` 下有多个顶层标签），
+Vue 无法给它挂过渡钩子，`leave` 永远不结束，`out-in` 就不会插入新组件——
+表现是**主内容区整片空白**。
+
+历史事故：`PostView.vue` 曾是多根（`.progress` + `.container`），于是
+「从文章页返回首页/标签/关于」全是空白，而**刷新又正常**（整页加载绕过过渡），
+所以极容易被误判成网络或缓存问题。
+
+现在 `App.vue` 里多了一层 `.route-view` 包裹元素，无论视图多少根都只对这一层做过渡：
+
+```vue
+<transition name="fade" mode="out-in">
+  <div :key="route.fullPath" class="route-view">   <!-- 别删这层 -->
+    <component :is="Component" />
+  </div>
+</transition>
+```
+
+**这层 div 不要删掉。** 另外 `npm run smoke` 里有一段专门做客户端跳转的断言，
+并且会检查控制台有没有 `non-element root node` 告警，用来兜住这类回归。
 
 ## 已知边界
 
