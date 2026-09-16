@@ -626,6 +626,22 @@ const visibleHits = computed(() =>
     gap: var(--sp-2);
   }
 
+  /* 窄屏下提交按钮只留图标，把宽度让给输入框 */
+  .searchbar .btn.primary {
+    padding: 7px 12px;
+    font-size: 0;
+    gap: 0;
+  }
+
+  .searchbar .btn.primary::after {
+    content: '';
+    width: 15px;
+    height: 15px;
+    background-color: currentColor;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E") center / contain no-repeat;
+  }
+
   .hits {
     padding: var(--sp-4);
   }

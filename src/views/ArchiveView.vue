@@ -134,21 +134,23 @@ const totalChars = computed(() => siteStats.chars)
   color: var(--text);
 }
 
-/* 年份横条：替代原来的一条死线，顺带表达产量 */
+/* 年份横条：替代原来的一条死线，顺带表达产量。
+   刻意压暗压细 —— 它是背景性的辅助信息，不能抢标题的视觉重量 */
 .line {
   flex: 1;
-  height: 3px;
+  height: 2px;
   border-radius: var(--radius-pill);
-  background: var(--bg-soft);
+  background: var(--border-soft);
   overflow: hidden;
   min-width: 40px;
+  max-width: 360px;
 }
 
 .line i {
   display: block;
   height: 100%;
   border-radius: var(--radius-pill);
-  background: linear-gradient(90deg, var(--accent), var(--violet));
+  background: linear-gradient(90deg, var(--accent-line), var(--accent));
   transition: width var(--t-slow) var(--ease);
 }
 

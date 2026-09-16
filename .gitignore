@@ -10,6 +10,9 @@ yarn-error.log*
 
 # 测试产出的截图，不入库
 screenshots/
+screenshots-new/
+screenshots-theme/
+screenshots-states/
 
 # WorkBuddy 的本地工作数据（项目笔记、会话状态等），不入库
 .workbuddy/
