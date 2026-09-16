@@ -6,8 +6,8 @@ defineProps({
 </script>
 
 <template>
-  <article class="pcard card" :class="{ horizontal }">
-    <router-link v-if="post.cover" :to="`/posts/${post.slug}`" class="cover">
+  <article class="pcard card card--interactive" :class="{ horizontal }">
+    <router-link v-if="post.cover" :to="`/posts/${post.slug}`" class="cover" tabindex="-1" aria-hidden="true">
       <img :src="post.cover" :alt="post.title" loading="lazy" />
     </router-link>
 
@@ -15,9 +15,9 @@ defineProps({
       <div class="meta">
         <span class="pin" v-if="post.pinned">置顶</span>
         <router-link :to="`/categories`" class="cat">{{ post.category }}</router-link>
-        <span class="dot">·</span>
+        <span class="dot" aria-hidden="true">·</span>
         <time :datetime="post.date">{{ post.date }}</time>
-        <span class="dot">·</span>
+        <span class="dot" aria-hidden="true">·</span>
         <span>{{ post.minutes }} 分钟</span>
       </div>
 
@@ -43,25 +43,40 @@ defineProps({
 
 <style scoped>
 .pcard {
-  padding: 20px 22px;
+  padding: var(--sp-5) var(--sp-5);
   display: flex;
   flex-direction: column;
-  gap: 0;
+  position: relative;
+  /* 左侧一条 2px 指示线，hover 时长出来 —— 比整卡变色更克制 */
+  overflow: hidden;
 }
 
-.pcard:hover {
-  border-color: var(--accent-line);
+.pcard::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: linear-gradient(180deg, var(--accent), var(--violet));
+  transform: scaleY(0);
+  transform-origin: top;
+  transition: transform var(--t) var(--ease);
+}
+
+.pcard:hover::before {
+  transform: scaleY(1);
 }
 
 .pcard.horizontal {
   flex-direction: row;
-  gap: 22px;
+  gap: var(--sp-5);
   align-items: flex-start;
 }
 
 .pcard.horizontal .cover {
   flex: 0 0 190px;
-  margin: -20px 0 -20px -22px;
+  margin: calc(var(--sp-5) * -1) 0 calc(var(--sp-5) * -1) calc(var(--sp-5) * -1);
   border-radius: var(--radius) 0 0 var(--radius);
   overflow: hidden;
   align-self: stretch;
@@ -77,6 +92,11 @@ defineProps({
   height: 100%;
   object-fit: cover;
   min-height: 110px;
+  transition: transform var(--t-slow) var(--ease);
+}
+
+.pcard:hover .cover img {
+  transform: scale(1.04);
 }
 
 .body {
@@ -93,26 +113,28 @@ defineProps({
   flex-wrap: wrap;
   font-size: 12.5px;
   color: var(--text-mute);
-  margin-bottom: 8px;
+  margin-bottom: var(--sp-2);
 }
 
 .pin {
   padding: 1px 7px;
-  border-radius: 4px;
-  background: rgba(210, 153, 34, 0.16);
+  border-radius: var(--radius-xs);
+  background: var(--warn-soft);
   color: var(--warn);
-  font-weight: 600;
+  font-weight: 650;
   font-size: 11.5px;
+  letter-spacing: 0.02em;
 }
 
 .cat {
   color: var(--accent);
-  font-weight: 500;
+  font-weight: 550;
+  transition: color var(--t-fast) var(--ease);
 }
 
 .cat:hover {
   text-decoration: none;
-  opacity: 0.8;
+  color: var(--accent-hover);
 }
 
 .dot {
@@ -120,14 +142,15 @@ defineProps({
 }
 
 .title {
-  margin: 0 0 9px;
+  margin: 0 0 var(--sp-2);
   font-size: 18.5px;
-  line-height: 1.45;
+  line-height: 1.44;
 }
 
 .title a {
   color: var(--text);
   text-decoration: none;
+  transition: color var(--t-fast) var(--ease);
 }
 
 .title a:hover {
@@ -135,7 +158,7 @@ defineProps({
 }
 
 .summary {
-  margin: 0 0 14px;
+  margin: 0 0 var(--sp-4);
   font-size: 14px;
   line-height: 1.75;
   color: var(--text-dim);
@@ -148,20 +171,28 @@ defineProps({
 
 .tags {
   display: flex;
-  gap: 6px;
+  gap: var(--sp-1) var(--sp-2);
   flex-wrap: wrap;
   margin-top: auto;
 }
 
 @media (max-width: 620px) {
+  .pcard {
+    padding: var(--sp-4);
+  }
+
   .pcard.horizontal {
     flex-direction: column;
   }
 
   .pcard.horizontal .cover {
     flex: none;
-    margin: -20px -22px 14px;
+    margin: calc(var(--sp-4) * -1) calc(var(--sp-4) * -1) var(--sp-3);
     border-radius: var(--radius) var(--radius) 0 0;
+  }
+
+  .title {
+    font-size: 17px;
   }
 }
 </style>

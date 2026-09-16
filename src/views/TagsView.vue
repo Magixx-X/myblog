@@ -1,7 +1,6 @@
 <script setup>
 import { computed } from 'vue'
-import { tagList, posts, siteStats } from '../content/blog'
-import PostCard from '../components/PostCard.vue'
+import { tagList, siteStats } from '../content/blog'
 
 /** 按规模给标签分档，用于字号差异 */
 const maxCount = computed(() => Math.max(1, ...tagList.map((t) => t.count)))
@@ -13,8 +12,6 @@ function sizeOf(count) {
   if (ratio > 0.3) return 14.5
   return 13.5
 }
-
-const hottest = computed(() => tagList.slice(0, 3))
 </script>
 
 <template>
@@ -29,7 +26,7 @@ const hottest = computed(() => tagList.slice(0, 3))
         v-for="t in tagList"
         :key="t.name"
         :to="`/tags/${encodeURIComponent(t.name)}`"
-        class="tag-card card"
+        class="tag-card card card--interactive"
       >
         <div class="tc-head">
           <span class="tc-name" :style="{ fontSize: sizeOf(t.count) + 'px' }">{{ t.name }}</span>
@@ -45,48 +42,24 @@ const hottest = computed(() => tagList.slice(0, 3))
     </div>
 
     <div v-else class="empty">
-      <span class="big">🏷️</span>
+      <span class="big" aria-hidden="true">🏷️</span>
       <p>还没有任何标签，在文章 front-matter 里加 <code>tags: [标签名]</code> 即可</p>
     </div>
   </div>
 </template>
 
 <style scoped>
-.page-head {
-  margin-bottom: 30px;
-}
-
-.page-head h1 {
-  margin: 0 0 8px;
-  font-size: 28px;
-}
-
-.page-head p {
-  margin: 0;
-  color: var(--text-dim);
-  font-size: 14.5px;
-}
-
-.page-head b {
-  color: var(--text);
-}
-
 .tag-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(288px, 1fr));
+  gap: var(--sp-4);
 }
 
 .tag-card {
-  padding: 16px 18px;
+  padding: var(--sp-4) var(--sp-4);
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  text-decoration: none;
-}
-
-.tag-card:hover {
-  border-color: var(--accent-line);
+  gap: var(--sp-3);
   text-decoration: none;
 }
 
@@ -94,13 +67,18 @@ const hottest = computed(() => tagList.slice(0, 3))
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 10px;
+  gap: var(--sp-3);
 }
 
 .tc-name {
   color: var(--accent);
-  font-weight: 600;
+  font-weight: 620;
   line-height: 1.3;
+  transition: color var(--t-fast) var(--ease);
+}
+
+.tag-card:hover .tc-name {
+  color: var(--accent-hover);
 }
 
 .tc-count {
@@ -109,14 +87,21 @@ const hottest = computed(() => tagList.slice(0, 3))
   background: var(--bg-soft);
   border: 1px solid var(--border);
   padding: 1px 9px;
-  border-radius: 100px;
+  border-radius: var(--radius-pill);
   flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+  transition: color var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease);
+}
+
+.tag-card:hover .tc-count {
+  color: var(--accent);
+  border-color: var(--accent-line);
 }
 
 .tc-titles {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--sp-1);
 }
 
 .tc-t {
@@ -136,7 +121,7 @@ const hottest = computed(() => tagList.slice(0, 3))
   content: '';
   position: absolute;
   left: 0;
-  top: 8px;
+  top: 0.62em;
   width: 3px;
   height: 3px;
   border-radius: 50%;
@@ -147,5 +132,12 @@ const hottest = computed(() => tagList.slice(0, 3))
   font-size: 12.5px;
   color: var(--text-mute);
   padding-left: 11px;
+}
+
+@media (max-width: 640px) {
+  .tag-grid {
+    grid-template-columns: 1fr;
+    gap: var(--sp-3);
+  }
 }
 </style>

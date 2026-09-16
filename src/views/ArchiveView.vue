@@ -21,6 +21,9 @@ const years = computed(() =>
   })
 )
 
+/** 年份区块的水平占比条，让"哪年写得最多"一眼可见 */
+const maxYearCount = computed(() => Math.max(1, ...years.value.map((y) => y.count)))
+
 const allTags = computed(() => {
   const c = new Map()
   for (const p of archiveList.flatMap((y) => y.posts)) {
@@ -57,7 +60,9 @@ const totalChars = computed(() => siteStats.chars)
       <section v-for="y in years" :key="y.year" class="year">
         <div class="year-head">
           <h2>{{ y.year }}</h2>
-          <span class="line"></span>
+          <span class="line" aria-hidden="true">
+            <i :style="{ width: Math.max(4, (y.count / maxYearCount) * 100) + '%' }"></i>
+          </span>
           <span class="year-count">{{ y.count }} 篇</span>
         </div>
 
@@ -85,7 +90,7 @@ const totalChars = computed(() => siteStats.chars)
     </div>
 
     <div v-else class="empty">
-      <span class="big">🗓️</span>
+      <span class="big" aria-hidden="true">🗓️</span>
       <p>还没有文章可以归档</p>
     </div>
   </div>
@@ -93,76 +98,83 @@ const totalChars = computed(() => siteStats.chars)
 
 <style scoped>
 .page-head {
-  margin-bottom: 22px;
-}
-
-.page-head h1 {
-  margin: 0 0 8px;
-  font-size: 28px;
-}
-
-.page-head p {
-  margin: 0;
-  color: var(--text-dim);
-  font-size: 14.5px;
-}
-
-.page-head b {
-  color: var(--text);
+  margin-bottom: var(--sp-5);
 }
 
 .tag-strip {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  padding-bottom: 22px;
-  margin-bottom: 30px;
+  gap: var(--sp-1) var(--sp-2);
+  padding-bottom: var(--sp-5);
+  margin-bottom: var(--sp-8);
   border-bottom: 1px solid var(--border);
 }
 
 .year {
-  margin-bottom: 38px;
+  margin-bottom: var(--sp-10);
+}
+
+.year:last-child {
+  margin-bottom: 0;
 }
 
 .year-head {
   display: flex;
   align-items: center;
-  gap: 14px;
-  margin-bottom: 20px;
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-5);
 }
 
 .year-head h2 {
   margin: 0;
   font-size: 21px;
   font-family: var(--mono);
-  letter-spacing: 0.02em;
+  letter-spacing: 0.01em;
   flex-shrink: 0;
+  color: var(--text);
 }
 
+/* 年份横条：替代原来的一条死线，顺带表达产量 */
 .line {
   flex: 1;
-  height: 1px;
-  background: var(--border);
+  height: 3px;
+  border-radius: var(--radius-pill);
+  background: var(--bg-soft);
+  overflow: hidden;
+  min-width: 40px;
+}
+
+.line i {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(90deg, var(--accent), var(--violet));
+  transition: width var(--t-slow) var(--ease);
 }
 
 .year-count {
   font-size: 13px;
   color: var(--text-mute);
   flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
 }
 
 .month {
   display: grid;
-  grid-template-columns: 56px minmax(0, 1fr);
-  gap: 18px;
-  margin-bottom: 18px;
+  grid-template-columns: 52px minmax(0, 1fr);
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-4);
+}
+
+.month:last-child {
+  margin-bottom: 0;
 }
 
 .month-label {
-  font-size: 13px;
+  font-size: 12.5px;
   color: var(--text-mute);
   font-family: var(--mono);
-  padding-top: 7px;
+  padding-top: 8px;
   text-align: right;
 }
 
@@ -176,26 +188,33 @@ const totalChars = computed(() => siteStats.chars)
 .items li {
   display: flex;
   align-items: baseline;
-  gap: 12px;
-  padding: 7px 0 7px 18px;
+  gap: var(--sp-3);
+  padding: 8px 0 8px var(--sp-5);
   position: relative;
+  transition: background-color var(--t-fast) var(--ease);
+}
+
+.items li:hover {
+  background: linear-gradient(90deg, var(--accent-softer), transparent 72%);
 }
 
 /* 时间轴圆点 */
 .items li::before {
   content: '';
   position: absolute;
-  left: -3.5px;
+  left: -4px;
   top: 15px;
-  width: 6px;
-  height: 6px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
-  background: var(--border);
-  transition: background 0.15s;
+  background: var(--bg);
+  border: 1.5px solid var(--border-strong);
+  transition: border-color var(--t-fast) var(--ease), background-color var(--t-fast) var(--ease);
 }
 
 .items li:hover::before {
   background: var(--accent);
+  border-color: var(--accent);
 }
 
 .day {
@@ -204,6 +223,7 @@ const totalChars = computed(() => siteStats.chars)
   color: var(--text-mute);
   flex-shrink: 0;
   width: 18px;
+  font-variant-numeric: tabular-nums;
 }
 
 .p-title {
@@ -212,6 +232,7 @@ const totalChars = computed(() => siteStats.chars)
   flex: 1;
   min-width: 0;
   line-height: 1.6;
+  transition: color var(--t-fast) var(--ease);
 }
 
 .p-title:hover {
@@ -221,7 +242,7 @@ const totalChars = computed(() => siteStats.chars)
 
 .p-tags {
   display: flex;
-  gap: 5px;
+  gap: var(--sp-1);
   flex-shrink: 0;
 }
 
@@ -231,7 +252,8 @@ const totalChars = computed(() => siteStats.chars)
   background: var(--bg-soft);
   border: 1px solid var(--border-soft);
   padding: 1px 7px;
-  border-radius: 100px;
+  border-radius: var(--radius-pill);
+  transition: color var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease);
 }
 
 .mini-tag:hover {
@@ -244,24 +266,26 @@ const totalChars = computed(() => siteStats.chars)
   font-size: 11.5px;
   color: var(--text-mute);
   flex-shrink: 0;
-  width: 44px;
+  width: 42px;
   text-align: right;
 }
 
 @media (max-width: 700px) {
   .month {
     grid-template-columns: 1fr;
-    gap: 6px;
+    gap: var(--sp-1);
   }
 
   .month-label {
     text-align: left;
     padding-top: 0;
+    padding-bottom: var(--sp-1);
   }
 
   .items li {
     flex-wrap: wrap;
-    gap: 8px;
+    gap: var(--sp-2);
+    padding-left: var(--sp-4);
   }
 
   .p-tags,

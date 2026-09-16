@@ -38,20 +38,20 @@ const coTags = computed(() => {
   <div class="container">
     <div v-if="current">
       <header class="page-head">
-        <div class="crumb">
+        <nav class="crumb" aria-label="面包屑">
           <router-link to="/tags">标签</router-link>
-          <span>/</span>
+          <span aria-hidden="true">/</span>
           <span>{{ tagName }}</span>
-        </div>
+        </nav>
         <h1>
-          <span class="hash">#</span>{{ tagName }}
+          <span class="hash" aria-hidden="true">#</span>{{ tagName }}
           <span class="cnt">{{ postsOfTag.length }} 篇</span>
         </h1>
       </header>
 
       <!-- 共现标签 -->
       <section v-if="coTags.length" class="co">
-        <span class="co-label">常一起出现：</span>
+        <span class="co-label">常一起出现</span>
         <router-link
           v-for="t in coTags"
           :key="t.name"
@@ -68,7 +68,7 @@ const coTags = computed(() => {
     </div>
 
     <div v-else class="empty">
-      <span class="big">🏷️</span>
+      <span class="big" aria-hidden="true">🏷️</span>
       <p>没有找到标签「{{ tagName }}」</p>
       <router-link to="/tags" class="btn">浏览全部标签</router-link>
     </div>
@@ -77,20 +77,21 @@ const coTags = computed(() => {
 
 <style scoped>
 .page-head {
-  margin-bottom: 22px;
+  margin-bottom: var(--sp-5);
 }
 
 .crumb {
   display: flex;
-  gap: 8px;
+  gap: var(--sp-2);
   align-items: center;
   font-size: 13px;
   color: var(--text-mute);
-  margin-bottom: 10px;
+  margin-bottom: var(--sp-3);
 }
 
 .crumb a {
   color: var(--text-mute);
+  transition: color var(--t-fast) var(--ease);
 }
 
 .crumb a:hover {
@@ -100,15 +101,18 @@ const coTags = computed(() => {
 
 h1 {
   margin: 0;
-  font-size: 27px;
+  font-size: clamp(24px, 3.4vw, 29px);
   display: flex;
   align-items: baseline;
-  gap: 10px;
+  gap: var(--sp-3);
   flex-wrap: wrap;
 }
 
 .hash {
-  color: var(--accent);
+  background: linear-gradient(135deg, var(--accent), var(--violet));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
   font-weight: 700;
 }
 
@@ -116,28 +120,33 @@ h1 {
   font-size: 14px;
   font-weight: 400;
   color: var(--text-mute);
+  font-variant-numeric: tabular-nums;
 }
 
 .co {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: var(--sp-2);
   flex-wrap: wrap;
-  padding: 12px 16px;
-  margin-bottom: 24px;
+  padding: var(--sp-3) var(--sp-4);
+  margin-bottom: var(--sp-6);
   border-radius: var(--radius);
   background: var(--bg-soft);
   border: 1px solid var(--border);
 }
 
 .co-label {
-  font-size: 13px;
+  font-size: 12px;
+  font-weight: 650;
   color: var(--text-mute);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding-right: var(--sp-1);
 }
 
 .post-list {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--sp-4);
 }
 </style>

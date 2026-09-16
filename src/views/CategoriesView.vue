@@ -43,15 +43,26 @@ function toggle(i) {
         class="cat card"
         :class="{ open: openIndex === i }"
       >
-        <button class="cat-head" @click="toggle(i)">
-          <span class="arrow">{{ openIndex === i ? '▾' : '▸' }}</span>
-          <span class="cat-name">{{ cat.name }}</span>
-          <span class="bar"><i :style="{ width: ratio(cat) + '%' }"></i></span>
-          <span class="cat-count">{{ cat.count }} 篇</span>
-        </button>
+        <h2 class="cat-h">
+          <button
+            class="cat-head"
+            :aria-expanded="openIndex === i"
+            :aria-controls="`cat-body-${i}`"
+            @click="toggle(i)"
+          >
+            <span class="arrow" aria-hidden="true">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round">
+                <path d="m9 6 6 6-6 6" />
+              </svg>
+            </span>
+            <span class="cat-name">{{ cat.name }}</span>
+            <span class="bar" aria-hidden="true"><i :style="{ width: ratio(cat) + '%' }"></i></span>
+            <span class="cat-count">{{ cat.count }} 篇</span>
+          </button>
+        </h2>
 
-        <transition name="fade">
-          <div v-show="openIndex === i" class="cat-body">
+        <transition name="fold">
+          <div v-show="openIndex === i" :id="`cat-body-${i}`" class="cat-body">
             <div class="cat-tags">
               <router-link
                 v-for="[name, n] in tagsOf(cat)"
@@ -65,7 +76,7 @@ function toggle(i) {
 
             <ul class="cat-posts">
               <li v-for="p in cat.posts" :key="p.slug">
-                <time>{{ p.date }}</time>
+                <time :datetime="p.date">{{ p.date }}</time>
                 <router-link :to="`/posts/${p.slug}`">{{ p.title }}</router-link>
               </li>
             </ul>
@@ -75,68 +86,47 @@ function toggle(i) {
     </div>
 
     <div v-else class="empty">
-      <span class="big">📁</span>
+      <span class="big" aria-hidden="true">📁</span>
       <p>还没有分类目录</p>
     </div>
   </div>
 </template>
 
 <style scoped>
-.page-head {
-  margin-bottom: 26px;
-}
-
-.page-head h1 {
-  margin: 0 0 8px;
-  font-size: 28px;
-}
-
-.page-head p {
-  margin: 0;
-  color: var(--text-dim);
-  font-size: 14.5px;
-  line-height: 1.7;
-}
-
-.page-head b {
-  color: var(--text);
-}
-
-.page-head code {
-  font-size: 12.5px;
-  padding: 1.5px 5px;
-  border-radius: 4px;
-  background: var(--bg-soft);
-  border: 1px solid var(--border);
-  font-family: var(--mono);
-  color: var(--accent);
-}
-
 .cat-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--sp-3);
 }
 
 .cat {
   overflow: hidden;
+  transition: border-color var(--t) var(--ease), background-color var(--t) var(--ease);
 }
 
 .cat.open {
   border-color: var(--accent-line);
+  background: var(--bg-elev-2);
+}
+
+.cat-h {
+  margin: 0;
+  font-size: inherit;
+  font-weight: inherit;
+  letter-spacing: inherit;
 }
 
 .cat-head {
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 15px 18px;
+  gap: var(--sp-3);
+  padding: var(--sp-4) var(--sp-5);
   border: none;
   background: transparent;
   color: var(--text);
   text-align: left;
-  transition: background 0.15s;
+  transition: background-color var(--t-fast) var(--ease);
 }
 
 .cat-head:hover {
@@ -144,32 +134,40 @@ function toggle(i) {
 }
 
 .arrow {
+  display: flex;
+  flex-shrink: 0;
   color: var(--text-mute);
-  font-size: 11px;
-  width: 10px;
+  transition: transform var(--t) var(--ease), color var(--t) var(--ease);
+}
+
+.cat.open .arrow {
+  transform: rotate(90deg);
+  color: var(--accent);
 }
 
 .cat-name {
   font-size: 16px;
-  font-weight: 600;
+  font-weight: 620;
   flex-shrink: 0;
+  letter-spacing: -0.01em;
 }
 
 .bar {
   flex: 1;
-  height: 5px;
-  border-radius: 100px;
+  height: 4px;
+  border-radius: var(--radius-pill);
   background: var(--bg-soft);
   overflow: hidden;
-  max-width: 260px;
+  max-width: 280px;
+  margin-left: var(--sp-2);
 }
 
 .bar i {
   display: block;
   height: 100%;
-  border-radius: 100px;
-  background: linear-gradient(90deg, var(--accent), #a371f7);
-  transition: width 0.4s ease;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(90deg, var(--accent), var(--violet));
+  transition: width var(--t-slow) var(--ease);
 }
 
 .cat-count {
@@ -177,18 +175,19 @@ function toggle(i) {
   color: var(--text-mute);
   margin-left: auto;
   flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
 }
 
 .cat-body {
-  padding: 4px 18px 18px 40px;
+  padding: var(--sp-1) var(--sp-5) var(--sp-5) 48px;
   border-top: 1px solid var(--border-soft);
 }
 
 .cat-tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin: 14px 0 16px;
+  gap: var(--sp-1) var(--sp-2);
+  margin: var(--sp-4) 0 var(--sp-5);
 }
 
 .cat-posts {
@@ -197,12 +196,12 @@ function toggle(i) {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 9px;
+  gap: var(--sp-2);
 }
 
 .cat-posts li {
   display: flex;
-  gap: 14px;
+  gap: var(--sp-4);
   align-items: baseline;
   font-size: 14.5px;
 }
@@ -212,16 +211,30 @@ function toggle(i) {
   font-size: 12px;
   color: var(--text-mute);
   flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
 }
 
 .cat-posts a {
   color: var(--text-dim);
   line-height: 1.6;
+  transition: color var(--t-fast) var(--ease);
 }
 
 .cat-posts a:hover {
   color: var(--accent);
   text-decoration: none;
+}
+
+/* 手风琴展开：只做透明度 + 位移，不做 height 动画（避免 reflow） */
+.fold-enter-active,
+.fold-leave-active {
+  transition: opacity var(--t) var(--ease), transform var(--t) var(--ease);
+}
+
+.fold-enter-from,
+.fold-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
 }
 
 @media (max-width: 620px) {
@@ -230,7 +243,12 @@ function toggle(i) {
   }
 
   .cat-body {
-    padding-left: 18px;
+    padding-left: var(--sp-4);
+    padding-right: var(--sp-4);
+  }
+
+  .cat-head {
+    padding: var(--sp-4);
   }
 }
 </style>

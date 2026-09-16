@@ -16,6 +16,7 @@ const progress = ref(0)
 const activeId = ref('')
 const copied = ref(false)
 const articleEl = ref(null)
+const tocEl = ref(null)
 
 /** 从渲染后的 DOM 里提取 h2 / h3 生成目录 */
 const toc = ref([])
@@ -43,6 +44,7 @@ function decorateHeadings() {
     a.href = `#${el.id}`
     a.textContent = '#'
     a.setAttribute('aria-hidden', 'true')
+    a.setAttribute('tabindex', '-1')
     el.prepend(a)
   })
 }
@@ -59,6 +61,7 @@ function decorateCodeBlocks() {
     const btn = document.createElement('button')
     btn.className = 'copy-code'
     btn.type = 'button'
+    btn.setAttribute('aria-label', '复制代码')
     btn.textContent = '复制'
     btn.addEventListener('click', async () => {
       try {
@@ -81,16 +84,32 @@ function onScroll() {
   progress.value = total > 0 ? Math.min(100, (doc.scrollTop / total) * 100) : 0
 
   if (!toc.value.length) return
-  const offset = 110
+  const offset = 120
   let current = ''
   for (const item of toc.value) {
     const el = document.getElementById(item.id)
     if (el && el.getBoundingClientRect().top <= offset) current = item.id
   }
   activeId.value = current
+  scrollTocIntoView()
 }
 
-const neighbors = computed(() => (post.value ? getNeighbors(post.value.slug) : { prev: null, next: null }))
+/** 目录里把当前项滚进可视区，长文目录也能跟上 */
+function scrollTocIntoView() {
+  const box = tocEl.value
+  if (!box || !activeId.value) return
+  const el = box.querySelector('a.active')
+  if (!el) return
+  const boxRect = box.getBoundingClientRect()
+  const elRect = el.getBoundingClientRect()
+  if (elRect.top < boxRect.top || elRect.bottom > boxRect.bottom) {
+    box.scrollTop += elRect.top - boxRect.top - boxRect.height / 2 + elRect.height / 2
+  }
+}
+
+const neighbors = computed(() =>
+  post.value ? getNeighbors(post.value.slug) : { prev: null, next: null }
+)
 const related = computed(() => (post.value ? getRelated(post.value.slug, 3) : []))
 
 async function setup() {
@@ -112,7 +131,7 @@ watch(post, (p) => {
   document.title = p ? `${p.title} · 我的博客` : '文章不存在 · 我的博客'
 })
 
-/** 该文章在全部文章里的序号（用于上一篇/下一篇的语义） */
+/** 这篇文章的元信息串（日期 · 时长 · 字数） */
 const indexLabel = computed(() => {
   if (!post.value) return ''
   return `${post.value.date} · ${post.value.minutes} 分钟读完 · 约 ${post.value.chars.toLocaleString()} 字`
@@ -131,29 +150,35 @@ async function copyPageLink() {
 
 <template>
   <!-- 阅读进度条 -->
-  <div class="progress" :style="{ width: progress + '%' }"></div>
+  <div class="progress" :style="{ width: progress + '%' }" aria-hidden="true"></div>
 
   <div v-if="post" class="container">
     <div class="layout">
       <!-- 正文 -->
       <article class="article">
         <header class="head">
-          <div class="breadcrumb">
+          <nav class="breadcrumb" aria-label="面包屑">
             <router-link to="/">首页</router-link>
-            <span>/</span>
+            <span aria-hidden="true">/</span>
             <router-link to="/categories">{{ post.category }}</router-link>
-          </div>
+          </nav>
 
           <h1 class="title">{{ post.title }}</h1>
 
           <div class="meta">
             <span class="pin" v-if="post.pinned">置顶</span>
             <time :datetime="post.date">{{ post.dateText || post.date }}</time>
-            <span class="dot">·</span>
+            <span class="dot" aria-hidden="true">·</span>
             <span>{{ post.minutes }} 分钟</span>
-            <span class="dot">·</span>
+            <span class="dot" aria-hidden="true">·</span>
             <span>{{ post.chars.toLocaleString() }} 字</span>
-            <button class="copy-link" @click="copyPageLink">
+            <button class="copy-link" :aria-live="'polite'" @click="copyPageLink">
+              <svg v-if="!copied" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                <path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7" />
+              </svg>
+              <svg v-else width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true">
+                <path d="m4 12 5.5 5.5L20 7" />
+              </svg>
               {{ copied ? '链接已复制' : '复制链接' }}
             </button>
           </div>
@@ -177,7 +202,11 @@ async function copyPageLink() {
         <div class="foot-note">
           <div class="fn-row">
             <span class="fn-label">版权</span>
-            <span>本文由 {{ post.author || '本站作者' }} 原创，采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="noopener">CC BY-NC-SA 4.0</a> 许可协议，转载请注明出处。</span>
+            <span>
+              本文由 {{ post.author || '本站作者' }} 原创，采用
+              <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="noopener">CC BY-NC-SA 4.0</a>
+              许可协议，转载请注明出处。
+            </span>
           </div>
           <div class="fn-row">
             <span class="fn-label">更新</span>
@@ -186,30 +215,40 @@ async function copyPageLink() {
         </div>
 
         <!-- 上一篇 / 下一篇 -->
-        <nav class="neighbors">
+        <nav class="neighbors" aria-label="相邻文章">
           <router-link
             v-if="neighbors.prev"
             :to="`/posts/${neighbors.prev.slug}`"
-            class="nb card"
+            class="nb card card--interactive"
           >
-            <span class="nb-dir">← 上一篇</span>
+            <span class="nb-dir">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                <path d="M19 12H5M11 6l-6 6 6 6" />
+              </svg>
+              上一篇
+            </span>
             <span class="nb-title">{{ neighbors.prev.title }}</span>
           </router-link>
           <div v-else class="nb card disabled">
-            <span class="nb-dir">← 上一篇</span>
+            <span class="nb-dir">上一篇</span>
             <span class="nb-title">已经是最新一篇</span>
           </div>
 
           <router-link
             v-if="neighbors.next"
             :to="`/posts/${neighbors.next.slug}`"
-            class="nb card right"
+            class="nb card card--interactive right"
           >
-            <span class="nb-dir">下一篇 →</span>
+            <span class="nb-dir">
+              下一篇
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                <path d="M5 12h14M13 6l6 6-6 6" />
+              </svg>
+            </span>
             <span class="nb-title">{{ neighbors.next.title }}</span>
           </router-link>
           <div v-else class="nb card right disabled">
-            <span class="nb-dir">下一篇 →</span>
+            <span class="nb-dir">下一篇</span>
             <span class="nb-title">已经是最早一篇</span>
           </div>
         </nav>
@@ -227,15 +266,16 @@ async function copyPageLink() {
       </article>
 
       <!-- 侧栏：目录 + 统计 -->
-      <aside class="side">
+      <aside class="side" aria-label="文章侧栏">
         <div v-if="toc.length" class="widget card toc-widget">
           <div class="w-title">目录</div>
-          <nav class="toc">
+          <nav ref="tocEl" class="toc" aria-label="文章目录">
             <a
               v-for="item in toc"
               :key="item.id"
               :href="`#${item.id}`"
               :class="[item.level === 3 ? 'lv3' : '', { active: activeId === item.id }]"
+              :aria-current="activeId === item.id ? 'location' : undefined"
             >
               {{ item.text }}
             </a>
@@ -263,7 +303,7 @@ async function copyPageLink() {
   <!-- 文章不存在 -->
   <div v-else class="container">
     <div class="empty">
-      <span class="big">📄</span>
+      <span class="big" aria-hidden="true">📄</span>
       <p>找不到这篇文章，它可能被重命名或删除了</p>
       <router-link to="/" class="btn">回到首页</router-link>
     </div>
@@ -276,40 +316,54 @@ async function copyPageLink() {
   top: 0;
   left: 0;
   height: 2px;
-  background: linear-gradient(90deg, var(--accent), #a371f7);
+  background: linear-gradient(90deg, var(--accent), var(--violet));
   z-index: 60;
   transition: width 0.1s linear;
+  box-shadow: 0 0 8px var(--accent-glow);
 }
 
 .layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 268px;
-  gap: 34px;
+  grid-template-columns: minmax(0, 1fr) var(--sidew);
+  gap: var(--sp-8);
   align-items: start;
 }
 
 .article {
   min-width: 0;
+  max-width: var(--readw);
 }
 
-/* 头部 */
+/* ---------- 头部 ---------- */
 .head {
-  padding-bottom: 22px;
-  margin-bottom: 28px;
-  border-bottom: 1px solid var(--border);
+  padding-bottom: var(--sp-5);
+  margin-bottom: var(--sp-8);
+  position: relative;
+}
+
+/* 标题与正文之间用一道渐变分隔线收口 */
+.head::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: linear-gradient(90deg, var(--accent-line), var(--border) 40%, transparent);
 }
 
 .breadcrumb {
   display: flex;
-  gap: 8px;
+  gap: var(--sp-2);
   align-items: center;
   font-size: 13px;
   color: var(--text-mute);
-  margin-bottom: 14px;
+  margin-bottom: var(--sp-4);
 }
 
 .breadcrumb a {
   color: var(--text-mute);
+  transition: color var(--t-fast) var(--ease);
 }
 
 .breadcrumb a:hover {
@@ -318,28 +372,29 @@ async function copyPageLink() {
 }
 
 .title {
-  margin: 0 0 14px;
-  font-size: 31px;
-  line-height: 1.35;
-  letter-spacing: -0.02em;
+  margin: 0 0 var(--sp-4);
+  font-size: clamp(26px, 3.6vw, 33px);
+  line-height: 1.32;
+  letter-spacing: -0.025em;
 }
 
 .meta {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--sp-2);
   flex-wrap: wrap;
   font-size: 13px;
   color: var(--text-mute);
-  margin-bottom: 15px;
+  margin-bottom: var(--sp-4);
 }
 
 .pin {
   padding: 1px 8px;
-  border-radius: 4px;
-  background: rgba(210, 153, 34, 0.16);
+  border-radius: var(--radius-xs);
+  background: var(--warn-soft);
   color: var(--warn);
-  font-weight: 600;
+  font-weight: 650;
+  font-size: 11.5px;
 }
 
 .dot {
@@ -347,70 +402,78 @@ async function copyPageLink() {
 }
 
 .copy-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   margin-left: auto;
   border: 1px solid var(--border);
   background: transparent;
   color: var(--text-mute);
   font-size: 12.5px;
-  padding: 3px 10px;
-  border-radius: 100px;
-  transition: color 0.15s, border-color 0.15s;
+  padding: 4px 11px;
+  border-radius: var(--radius-pill);
+  transition: color var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease),
+    background-color var(--t-fast) var(--ease);
 }
 
 .copy-link:hover {
   color: var(--accent);
   border-color: var(--accent-line);
+  background: var(--accent-softer);
 }
 
 .tags {
   display: flex;
-  gap: 6px;
+  gap: var(--sp-1) var(--sp-2);
   flex-wrap: wrap;
 }
 
-/* 脚注 */
+/* ---------- 脚注 ---------- */
 .foot-note {
-  margin-top: 44px;
-  padding: 16px 18px;
+  margin-top: var(--sp-12);
+  padding: var(--sp-4) var(--sp-5);
   border-radius: var(--radius);
   background: var(--bg-soft);
-  border: 1px dashed var(--border);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--border-strong);
   font-size: 13px;
   color: var(--text-dim);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--sp-2);
 }
 
 .fn-row {
   display: flex;
-  gap: 12px;
+  gap: var(--sp-3);
+  line-height: 1.7;
 }
 
 .fn-label {
-  flex: 0 0 36px;
+  flex: 0 0 34px;
   color: var(--text-mute);
-  font-weight: 600;
+  font-weight: 650;
+  letter-spacing: 0.02em;
 }
 
-/* 上下篇 */
+/* ---------- 上下篇 ---------- */
 .neighbors {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 14px;
-  margin-top: 26px;
+  gap: var(--sp-3);
+  margin-top: var(--sp-8);
 }
 
 .nb {
-  padding: 14px 16px;
+  padding: var(--sp-4) var(--sp-4);
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: var(--sp-1);
   text-decoration: none;
+  min-height: 76px;
 }
 
 .nb:not(.disabled):hover {
-  border-color: var(--accent-line);
   text-decoration: none;
 }
 
@@ -419,17 +482,26 @@ async function copyPageLink() {
 }
 
 .nb.disabled {
-  opacity: 0.45;
+  opacity: 0.42;
+  cursor: not-allowed;
 }
 
 .nb-dir {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   font-size: 12px;
   color: var(--text-mute);
+  font-weight: 550;
+}
+
+.nb.right .nb-dir {
+  justify-content: flex-end;
 }
 
 .nb-title {
   font-size: 14.5px;
-  font-weight: 500;
+  font-weight: 550;
   color: var(--text);
   line-height: 1.5;
   display: -webkit-box;
@@ -439,79 +511,47 @@ async function copyPageLink() {
   overflow: hidden;
 }
 
-/* 相关文章 */
+/* ---------- 相关文章 ---------- */
 .related {
-  margin-top: 46px;
+  margin-top: var(--sp-12);
 }
 
 .related-list {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: var(--sp-4);
 }
 
-/* 侧栏 */
+/* ---------- 侧栏 ---------- */
 .side {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: var(--sp-4);
   position: sticky;
-  top: calc(var(--header-h) + 24px);
-}
-
-.widget {
-  padding: 15px 17px;
-}
-
-.w-title {
-  font-size: 12.5px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-mute);
-  margin-bottom: 12px;
+  top: calc(var(--header-h) + var(--sp-6));
 }
 
 .toc-widget {
   max-height: calc(100vh - 180px);
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
 }
 
 .abs {
-  margin: 0 0 12px;
+  margin: 0 0 var(--sp-3);
   font-size: 13px;
-  line-height: 1.7;
+  line-height: 1.72;
   color: var(--text-dim);
 }
 
-.kv {
-  display: flex;
-  justify-content: space-between;
-  font-size: 13.5px;
-  color: var(--text-mute);
-  padding: 3px 0;
-}
-
-.kv b {
-  color: var(--text);
-  font-weight: 500;
-}
-
-.more {
-  display: inline-block;
-  margin-top: 10px;
-  font-size: 13px;
-  color: var(--text-mute);
-}
-
-.more:hover {
-  color: var(--accent);
-  text-decoration: none;
-}
-
-@media (max-width: 940px) {
+/* ---------- 响应式 ---------- */
+@media (max-width: 1000px) {
   .layout {
     grid-template-columns: 1fr;
+  }
+
+  .article {
+    max-width: none;
   }
 
   .side {
@@ -520,11 +560,7 @@ async function copyPageLink() {
   }
 
   .toc-widget {
-    max-height: 240px;
-  }
-
-  .title {
-    font-size: 25px;
+    max-height: none;
   }
 }
 
@@ -536,6 +572,23 @@ async function copyPageLink() {
   .nb.right {
     text-align: left;
   }
+
+  .nb.right .nb-dir {
+    justify-content: flex-start;
+  }
+
+  .meta {
+    font-size: 12.5px;
+  }
+
+  .copy-link {
+    margin-left: 0;
+  }
+
+  .fn-row {
+    flex-direction: column;
+    gap: 2px;
+  }
 }
 </style>
 
@@ -543,21 +596,28 @@ async function copyPageLink() {
 /* 代码块的复制按钮由 DOM 动态插入，不能用 scoped */
 .copy-code {
   position: absolute;
-  top: 7px;
-  right: 8px;
-  padding: 3px 9px;
+  top: 8px;
+  right: 10px;
+  padding: 4px 10px;
   font-size: 11.5px;
   font-family: var(--mono);
   color: var(--text-mute);
   background: var(--bg-elev);
   border: 1px solid var(--border);
-  border-radius: 5px;
+  border-radius: var(--radius-xs);
   opacity: 0;
-  transition: opacity 0.15s, color 0.15s;
+  transform: translateY(-2px);
+  transition: opacity var(--t-fast) var(--ease), transform var(--t-fast) var(--ease),
+    color var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease);
+  pointer-events: none;
 }
 
-.markdown-body pre:hover .copy-code {
+/* hover 代码块出现；键盘 focus 到按钮时也要可见 */
+.markdown-body pre:hover .copy-code,
+.copy-code:focus-visible {
   opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
 }
 
 .copy-code:hover {

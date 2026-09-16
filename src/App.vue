@@ -24,9 +24,12 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
 </script>
 
 <template>
+  <!-- 键盘用户按第一个 Tab 就能跳到正文，跳过整条导航 -->
+  <a class="skip-link" href="#main">跳到主要内容</a>
+
   <SiteHeader />
 
-  <main class="app-main">
+  <main id="main" class="app-main" tabindex="-1">
     <router-view v-slot="{ Component }">
       <transition name="fade" mode="out-in">
         <!--
@@ -47,14 +50,19 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
   <SiteFooter />
 
   <transition name="fade">
-    <button v-show="showTop" class="to-top" title="回到顶部" @click="toTop">↑</button>
+    <button v-show="showTop" class="to-top" title="回到顶部" aria-label="回到顶部" @click="toTop">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+        <path d="M12 19V5M5 12l7-7 7 7" />
+      </svg>
+    </button>
   </transition>
 </template>
 
 <style scoped>
 .app-main {
   min-height: calc(100vh - var(--header-h) - 200px);
-  padding: 34px 0 64px;
+  padding: var(--sp-8) 0 var(--sp-16);
+  outline: none;
 }
 
 /* 只作为过渡的单一子节点存在，本身不产生任何布局效果 */
@@ -64,33 +72,40 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
 
 .to-top {
   position: fixed;
-  right: 26px;
-  bottom: 30px;
+  right: var(--sp-6);
+  bottom: var(--sp-8);
   width: 42px;
   height: 42px;
   border-radius: 50%;
   border: 1px solid var(--border);
   background: var(--bg-elev);
   color: var(--text-dim);
-  font-size: 17px;
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-lg);
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: color 0.16s, border-color 0.16s, transform 0.16s;
+  transition: color var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease),
+    transform var(--t) var(--ease), background-color var(--t-fast) var(--ease);
   z-index: 40;
 }
 
 .to-top:hover {
   color: var(--accent);
   border-color: var(--accent-line);
-  transform: translateY(-2px);
+  background: var(--bg-elev-2);
+  transform: translateY(-3px);
 }
 
 @media (max-width: 640px) {
+  .app-main {
+    padding: var(--sp-5) 0 var(--sp-12);
+  }
+
   .to-top {
-    right: 14px;
-    bottom: 18px;
+    right: var(--sp-4);
+    bottom: var(--sp-5);
+    width: 38px;
+    height: 38px;
   }
 }
 </style>
